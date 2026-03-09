@@ -21,7 +21,7 @@ class CoCBot:
         # Attack configuration
         self.attack_config = {
             "heroKeybinds": ["q", "w", "e"],
-            "unitKeybind": "1",
+            "unitKeybind": "2",
             "zapKeybind": "a",
             "airDefensPositions": [
                 [1000, 700],
@@ -29,8 +29,8 @@ class CoCBot:
                 [500, 700],
                 [500, 500],
             ],
-            "heroXPosition": 200,
-            "heroYPosition": 700,
+            "heroXPosition": 100,
+            "heroYPosition": 500,
             "unitXPosition": 100,
             "unitYPosition": 500
         }
@@ -51,7 +51,7 @@ class CoCBot:
             "auto_cancel_timeout": 45,
             "enable_auto_cancel": True,
             "attack_delay_before": 2,
-            "attack_delay_between": 1
+            "attack_delay_between": 0.3
         }
         
         if os.path.exists(config_file):
@@ -116,6 +116,96 @@ class CoCBot:
                 time.sleep(1)
         return None
 
+    def find_all_air_defenses(self, timeout: float = 30.0, confidence: float = 0.75) -> list:
+        """
+        Find all air defense positions on the screen using template matching
+        Returns a list of tuples (x, y, level) for each found air defense
+        """
+        print("Searching for air defenses...")
+        
+        # Load air defense templates if not already loaded
+        air_defense_templates = {}
+        template_dir = "templates/airdefense"
+        
+        # Check if directory exists
+        if not os.path.exists(template_dir):
+            print(f"Warning: Air defense template directory '{template_dir}' not found!")
+            return []
+        
+        # Load all air defense level templates
+        for level in range(8, 12):  # levels 8-11
+            filename = f"airdefense_level{level}.png"
+            filepath = os.path.join(template_dir, filename)
+            
+            if os.path.exists(filepath):
+                template = cv2.imread(filepath, 0)
+                if template is not None:
+                    air_defense_templates[level] = template
+                    print(f"Loaded template for level {level}")
+                else:
+                    print(f"Warning: Could not load {filename}")
+            else:
+                print(f"Warning: {filename} not found")
+        
+        if not air_defense_templates:
+            print("No air defense templates found!")
+            return []
+        
+        # Capture the screen
+        start_time = time.time()
+        found_positions = []  # Store (x, y, level)
+        
+        while time.time() - start_time < timeout and len(found_positions) < 4:
+            # Capture screen in grayscale
+            screen_gray = self.capture_screen(grayscale=True)
+            screen_h, screen_w = screen_gray.shape
+            
+            # Try to find each level template
+            for level, template in air_defense_templates.items():
+                template_h, template_w = template.shape
+                
+                # Skip if template is larger than screen
+                if template_h > screen_h or template_w > screen_w:
+                    continue
+                
+                # Perform template matching
+                result = cv2.matchTemplate(screen_gray, template, cv2.TM_CCOEFF_NORMED)
+                
+                # Find all matches above confidence threshold
+                locations = np.where(result >= confidence)
+                
+                # Group nearby detections
+                for pt in zip(*locations[::-1]):  # Switch to (x, y) format
+                    center_x = pt[0] + template_w // 2
+                    center_y = pt[1] + template_h // 2
+                    
+                    # Check if this position is too close to already found positions
+                    is_duplicate = False
+                    for found_x, found_y, found_level in found_positions:
+                        distance = np.sqrt((center_x - found_x)**2 + (center_y - found_y)**2)
+                        if distance < 50:  # Threshold for duplicate detection
+                            is_duplicate = True
+                            # Keep the higher confidence detection
+                            break
+                    
+                    if not is_duplicate:
+                        found_positions.append((center_x, center_y, level))
+                        print(f"Found air defense level {level} at ({center_x}, {center_y})")
+                        
+                        # Optional: Draw rectangle on screen for debugging
+                        if len(found_positions) == 4:
+                            break
+                
+                if len(found_positions) >= 4:
+                    break
+            
+            if len(found_positions) < 4:
+                time.sleep(0.5)  # Wait before next scan
+        
+        found_positions.sort(key=lambda pos: pos[2])
+        
+        return found_positions
+
     def human_click(self, x: int, y: int, click_type: str = "left"):
         """Perform human-like click with natural variations"""
         if self.config["human_like_mouse"]:
@@ -176,14 +266,27 @@ class CoCBot:
         time.sleep(0.2)
         pyautogui.mouseUp(button='left')
 
-    def place_zap_on_air_defense(self, char: str, air_defense_positions: list):
-        """Place zaps on all air defense positions"""
+    def place_zap_on_air_defense(self, char: str, air_defense_positions: list = None):
+        
+        found_ads = self.find_all_air_defenses(timeout=30.0, confidence=0.6)
+        if found_ads:
+            positions_to_use = [(x, y) for x, y, level in found_ads]
+        else:
+            positions_to_use = self.attack_config["airDefensPositions"]
+        
         self.press_key(char)
-        for position in air_defense_positions:
-            pyautogui.moveTo(position[0], position[1], duration=0.4)
-            for _ in range(3):
-                pyautogui.click(position[0], position[1])
-                time.sleep(0.2)
+        time.sleep(0.5)
+        
+        for i, (x, y) in enumerate(positions_to_use):
+            pyautogui.moveTo(x, y, duration=random.uniform(0.3, 0.6))
+            time.sleep(random.uniform(0.2, 0.4))
+            
+            for zap_num in range(3):
+                pyautogui.click(x, y)
+                time.sleep(random.uniform(0.2, 0.3))
+            
+            if i < len(positions_to_use) - 1:
+                time.sleep(random.uniform(0.5, 1.0))
 
     def perform_attack_sequence(self):
         """Execute the complete attack sequence"""
