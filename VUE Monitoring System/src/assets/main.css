@@ -1,0 +1,104 @@
+/* ── Reset ─────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ── Variables ─────────────────────────────── */
+:root {
+  /* Surfaces */
+  --bg:          #f4f4f5;
+  --surface:     #ffffff;
+  --surface-2:   #fafafa;
+  --border:      #e4e4e7;
+  --border-2:    #d4d4d8;
+
+  /* Text */
+  --text-1:      #18181b;
+  --text-2:      #71717a;
+  --text-3:      #a1a1aa;
+
+  /* Log levels */
+  --info:        #2563eb;
+  --info-bg:     #eff6ff;
+  --info-border: #bfdbfe;
+
+  --warn:        #b45309;
+  --warn-bg:     #fffbeb;
+  --warn-border: #fde68a;
+
+  --error:       #dc2626;
+  --error-bg:    #fef2f2;
+  --error-border:#fecaca;
+
+  --debug:       #7c3aed;
+  --debug-bg:    #f5f3ff;
+  --debug-border:#ddd6fe;
+
+  --success:     #16a34a;
+
+  /* Layout */
+  --sidebar-w:   256px;
+  --header-h:    52px;
+  --radius-sm:   4px;
+  --radius:      8px;
+  --radius-lg:   12px;
+
+  /* Fonts */
+  --font-sans:   'DM Sans', system-ui, sans-serif;
+  --font-mono:   'DM Mono', 'Fira Code', monospace;
+}
+
+/* ── Base ──────────────────────────────────── */
+html, body, #app {
+  height: 100%;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--text-1);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: var(--font-sans);
+  cursor: pointer;
+}
+
+input {
+  font-family: var(--font-sans);
+}
+
+/* ── Scrollbars ────────────────────────────── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-2) transparent;
+}
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 4px; }
+
+/* ── Transitions ───────────────────────────── */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.15s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.slide-up-enter-active {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.slide-up-leave-active {
+  transition: all 0.15s ease-in;
+}
+.slide-up-enter-from {
+  opacity: 0;
+  transform: translateY(6px);
+}
+.slide-up-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
