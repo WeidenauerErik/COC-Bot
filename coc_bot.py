@@ -7,12 +7,14 @@ import keyboard
 import time
 import pyautogui
 from typing import Tuple, Dict, Optional
+from logger import setup_logger
 
 pyautogui.FAILSAFE = False
 
 class CoCBot:
     def __init__(self, config_file: str = "bot_config.json"):
         """Initialize the bot with navigation and attack capabilities"""
+        self.logger = setup_logger()
         self.config = self.load_config(config_file)
         self.screen_width, self.screen_height = pyautogui.size()
         self.cycle_count = 0
@@ -35,8 +37,8 @@ class CoCBot:
             "unitYPosition": 500
         }
         
-        print(f"CoC Bot initialized. Screen: {self.screen_width}x{self.screen_height}")
-        print(f"Loaded {len(self.templates)} templates")
+        self.logger.info(f"CoC Bot initialized. Screen: {self.screen_width}x{self.screen_height}")
+        self.logger.info(f"Loaded {len(self.templates)} templates")
 
     def load_config(self, config_file: str) -> Dict:
         """Load configuration from JSON file"""
@@ -121,7 +123,7 @@ class CoCBot:
         Find all air defense positions on the screen using template matching
         Returns a list of tuples (x, y, level) for each found air defense
         """
-        print("Searching for air defenses...")
+        self.logger.info("Searching for air defenses...")
         
         # Load air defense templates if not already loaded
         air_defense_templates = {}
@@ -129,7 +131,7 @@ class CoCBot:
         
         # Check if directory exists
         if not os.path.exists(template_dir):
-            print(f"Warning: Air defense template directory '{template_dir}' not found!")
+            self.logger.warning(f"Warning: Air defense template directory '{template_dir}' not found!")
             return []
         
         # Load all air defense level templates
@@ -141,14 +143,14 @@ class CoCBot:
                 template = cv2.imread(filepath, 0)
                 if template is not None:
                     air_defense_templates[level] = template
-                    print(f"Loaded template for level {level}")
+                    self.logger.info(f"Loaded template for level {level}")
                 else:
-                    print(f"Warning: Could not load {filename}")
+                    self.logger.warning(f"Warning: Could not load {filename}")
             else:
-                print(f"Warning: {filename} not found")
+                self.logger.warning(f"Warning: {filename} not found")
         
         if not air_defense_templates:
-            print("No air defense templates found!")
+            self.logger.warning("No air defense templates found!")
             return []
         
         # Capture the screen
@@ -190,7 +192,7 @@ class CoCBot:
                     
                     if not is_duplicate:
                         found_positions.append((center_x, center_y, level))
-                        print(f"Found air defense level {level} at ({center_x}, {center_y})")
+                        self.logger.info(f"Found air defense level {level} at ({center_x}, {center_y})")
                         
                         # Optional: Draw rectangle on screen for debugging
                         if len(found_positions) == 4:
@@ -290,11 +292,11 @@ class CoCBot:
 
     def perform_attack_sequence(self):
         """Execute the complete attack sequence"""
-        print("Starting attack sequence...")
+        self.logger.info("Starting attack sequence...")
         time.sleep(self.config.get("attack_delay_before", 2))
         
         # Zap air defenses first
-        print("Placing zaps on air defenses...")
+        self.logger.info("Placing zaps on air defenses...")
         self.place_zap_on_air_defense(
             self.attack_config["zapKeybind"], 
             self.attack_config["airDefensPositions"]
@@ -303,7 +305,7 @@ class CoCBot:
         time.sleep(self.config.get("attack_delay_between", 1))
         
         # Place heroes
-        print("Deploying heroes...")
+        self.logger.info("Deploying heroes...")
         for char in self.attack_config["heroKeybinds"]:
             self.place_heroes(char)
             time.sleep(self.config.get("attack_delay_between", 1))
@@ -311,14 +313,14 @@ class CoCBot:
         time.sleep(self.config.get("attack_delay_between", 1))
         
         # Place units
-        print("Deploying troops...")
+        self.logger.info("Deploying troops...")
         self.place_units(
             self.attack_config["unitKeybind"],
             self.attack_config["unitXPosition"],
             self.attack_config["unitYPosition"]
         )
         
-        print("Attack sequence completed")
+        self.logger.info("Attack sequence completed")
 
     # ============ BATTLE MANAGEMENT ============
 
@@ -330,11 +332,11 @@ class CoCBot:
         while time.time() - start_time < timeout:
             return_coords = self.find_with_image("return_home", timeout=1)
             if return_coords:
-                print("Battle ended normally")
+                self.logger.info("Battle ended normally")
                 return True
             time.sleep(10)
 
-        print(f"Battle timeout reached ({timeout} seconds)")
+        self.logger.info(f"Battle timeout reached ({timeout} seconds)")
         cancelled = self.cancel_attack_after_timeout(timeout)
         return cancelled
 
@@ -345,7 +347,7 @@ class CoCBot:
         if not enable_auto_cancel:
             return False
 
-        print("Attempting to cancel attack...")
+        self.logger.info("Attempting to cancel attack...")
         cancel_coords = self.find_with_image("cancel_attack", timeout=10)
         if cancel_coords:
             self.human_click(cancel_coords[0], cancel_coords[1])
@@ -355,23 +357,23 @@ class CoCBot:
             if ok_coords:
                 self.human_click(ok_coords[0], ok_coords[1])
                 time.sleep(3)
-                print("Attack cancelled successfully")
+                self.logger.info("Attack cancelled successfully")
                 return True
         
         return False
 
     def perform_attack(self):
         """Main attack function - integrates attack sequence with battle management"""
-        print("\n--- Starting Battle ---")
+        self.logger.info("\n--- Starting Battle ---")
         
         # Execute the attack sequence
         self.perform_attack_sequence()
         
         # Wait for battle to end or cancel
-        print("Waiting for battle to end...")
+        self.logger.info("Waiting for battle to end...")
         self.wait_for_battle_end(self.config["battle_time"])
         
-        print("--- Battle Finished ---\n")
+        self.logger.info("--- Battle Finished ---\n")
 
     # ============ NAVIGATION FUNCTIONS ============
 
@@ -380,19 +382,19 @@ class CoCBot:
         try:
             # Click Attack button
             if not self.click_button("attack_button"):
-                print("Attack button not found!")
+                self.logger.warning("Attack button not found!")
                 return False
             time.sleep(random.uniform(1.5, 2.5))
 
             # Click Multiplayer button
             if not self.click_button("multiplayer_button"):
-                print("Multiplayer button not found!")
+                self.logger.warning("Multiplayer button not found!")
                 return False
             time.sleep(random.uniform(1.5, 2.5))
 
             # Click Find Match button
             if not self.click_button("find_match_button"):
-                print("Find Match button not found!")
+                self.logger.warning("Find Match button not found!")
                 return False
             
             # Wait for match to load
@@ -407,7 +409,7 @@ class CoCBot:
                 return_success = True
             
             if not return_success:
-                print("Return home button not found, clicking center screen...")
+                self.logger.info("Return home button not found, clicking center screen...")
                 self.human_click(self.screen_width // 2, self.screen_height // 2)
                 time.sleep(random.uniform(3, 5))
 
@@ -415,69 +417,69 @@ class CoCBot:
             return True
 
         except Exception as e:
-            print(f"Navigation cycle error: {e}")
+            self.logger.error(f"Navigation cycle error: {e}")
             return False
 
     def continuous_navigation_loop(self):
         """Continuous navigation loop"""
-        print(f"\nStarting continuous navigation cycles")
-        print(f"Maximum cycles: {self.config['max_cycles']}")
-        print(f"Delay between cycles: {self.config['delay_between_cycles']} seconds")
-        print("Press Ctrl+C to stop\n")
+        self.logger.info(f"\nStarting continuous navigation cycles")
+        self.logger.info(f"Maximum cycles: {self.config['max_cycles']}")
+        self.logger.info(f"Delay between cycles: {self.config['delay_between_cycles']} seconds")
+        self.logger.info("Press Ctrl+C to stop\n")
 
         try:
             while self.cycle_count < self.config["max_cycles"]:
-                print(f"\n{'='*60}")
-                print(f"CYCLE #{self.cycle_count + 1}")
-                print(f"{'='*60}")
+                self.logger.info(f"\n{'='*60}")
+                self.logger.info(f"CYCLE #{self.cycle_count + 1}")
+                self.logger.info(f"{'='*60}")
 
                 success = self.navigation_cycle()
 
                 if success:
-                    print(f"Cycle #{self.cycle_count} completed successfully")
+                    self.logger.info(f"Cycle #{self.cycle_count} completed successfully")
                     
                     if self.cycle_count < self.config["max_cycles"]:
                         delay = self.config["delay_between_cycles"] + random.uniform(-5, 10)
-                        print(f"Next cycle in {delay:.1f} seconds...")
+                        self.logger.info(f"Next cycle in {delay:.1f} seconds...")
                         
                         for i in range(int(delay), 0, -1):
                             if i % 30 == 0 or i <= 10:
-                                print(f"  {i} seconds remaining...")
+                                self.logger.info(f"  {i} seconds remaining...")
                             time.sleep(1)
-                        print()
+                        self.logger.info("")
                 else:
-                    print(f"Cycle #{self.cycle_count + 1} failed")
-                    print("Waiting 30 seconds before retry...")
+                    self.logger.error(f"Cycle #{self.cycle_count + 1} failed")
+                    self.logger.info("Waiting 30 seconds before retry...")
                     time.sleep(30)
 
         except KeyboardInterrupt:
-            print("\n\nBot stopped by user")
+            self.logger.info("\n\nBot stopped by user")
             self.show_statistics()
 
     def show_statistics(self):
         """Display navigation statistics"""
-        print("\n" + "="*60)
-        print("BOT SESSION STATISTICS")
-        print("="*60)
-        print(f"Total Cycles Completed: {self.cycle_count}")
-        print("="*60 + "\n")
+        self.logger.info("\n" + "="*60)
+        self.logger.info("BOT SESSION STATISTICS")
+        self.logger.info("="*60)
+        self.logger.info(f"Total Cycles Completed: {self.cycle_count}")
+        self.logger.info("="*60 + "\n")
 
     def update_attack_config(self):
         """Interactive menu to update attack configuration"""
-        print("\n=== Attack Configuration ===")
-        print(f"Current hero positions: X={self.attack_config['heroXPosition']}, Y={self.attack_config['heroYPosition']}")
-        print(f"Current unit positions: X={self.attack_config['unitXPosition']}, Y={self.attack_config['unitYPosition']}")
-        print(f"Hero keybinds: {self.attack_config['heroKeybinds']}")
-        print(f"Unit keybind: {self.attack_config['unitKeybind']}")
-        print(f"Zap keybind: {self.attack_config['zapKeybind']}")
-        print(f"Air defense positions: {self.attack_config['airDefensPositions']}")
+        self.logger.info("\n=== Attack Configuration ===")
+        self.logger.info(f"Current hero positions: X={self.attack_config['heroXPosition']}, Y={self.attack_config['heroYPosition']}")
+        self.logger.info(f"Current unit positions: X={self.attack_config['unitXPosition']}, Y={self.attack_config['unitYPosition']}")
+        self.logger.info(f"Hero keybinds: {self.attack_config['heroKeybinds']}")
+        self.logger.info(f"Unit keybind: {self.attack_config['unitKeybind']}")
+        self.logger.info(f"Zap keybind: {self.attack_config['zapKeybind']}")
+        self.logger.info(f"Air defense positions: {self.attack_config['airDefensPositions']}")
         
-        print("\nOptions:")
-        print("1. Update hero positions")
-        print("2. Update unit positions")
-        print("3. Update keybinds")
-        print("4. Update air defense positions")
-        print("5. Back to main menu")
+        self.logger.info("\nOptions:")
+        self.logger.info("1. Update hero positions")
+        self.logger.info("2. Update unit positions")
+        self.logger.info("3. Update keybinds")
+        self.logger.info("4. Update air defense positions")
+        self.logger.info("5. Back to main menu")
         
         choice = input("\nSelect option (1-5): ").strip()
         
@@ -487,9 +489,9 @@ class CoCBot:
                 y = int(input("Enter hero Y position: "))
                 self.attack_config["heroXPosition"] = x
                 self.attack_config["heroYPosition"] = y
-                print("Hero positions updated!")
+                self.logger.info("Hero positions updated!")
             except ValueError:
-                print("Invalid input!")
+                self.logger.info("Invalid input!")
         
         elif choice == "2":
             try:
@@ -497,12 +499,12 @@ class CoCBot:
                 y = int(input("Enter unit Y position: "))
                 self.attack_config["unitXPosition"] = x
                 self.attack_config["unitYPosition"] = y
-                print("Unit positions updated!")
+                self.logger.info("Unit positions updated!")
             except ValueError:
-                print("Invalid input!")
+                self.logger.info("Invalid input!")
         
         elif choice == "3":
-            print("Enter new keybinds (single characters):")
+            self.logger.info("Enter new keybinds (single characters):")
             hero1 = input("Hero 1 key (default q): ") or "q"
             hero2 = input("Hero 2 key (default w): ") or "w"
             hero3 = input("Hero 3 key (default e): ") or "e"
@@ -512,10 +514,10 @@ class CoCBot:
             self.attack_config["heroKeybinds"] = [hero1, hero2, hero3]
             self.attack_config["unitKeybind"] = unit
             self.attack_config["zapKeybind"] = zap
-            print("Keybinds updated!")
+            self.logger.info("Keybinds updated!")
         
         elif choice == "4":
-            print("Enter 4 air defense positions as X,Y coordinates:")
+            self.logger.info("Enter 4 air defense positions as X,Y coordinates:")
             positions = []
             for i in range(4):
                 try:
@@ -525,17 +527,17 @@ class CoCBot:
                         y = int(coords[1].strip())
                         positions.append([x, y])
                 except:
-                    print(f"Invalid input for position {i+1}, keeping original")
+                    self.logger.info(f"Invalid input for position {i+1}, keeping original")
             
             if len(positions) == 4:
                 self.attack_config["airDefensPositions"] = positions
-                print("Air defense positions updated!")
+                self.logger.info("Air defense positions updated!")
             else:
-                print("Failed to update positions - need exactly 4 positions")
+                self.logger.error("Failed to update positions - need exactly 4 positions")
 
     def run(self):
         """Main run function"""
-        print("""
+        self.logger.info("""
     +----------------------------------------------------+
     |                COC COMPLETE BOT                    |
     |         Navigation + Automated Attacks              |
@@ -553,10 +555,10 @@ class CoCBot:
                 missing_templates.append(template)
 
         if missing_templates:
-            print(f"Warning: Missing required templates: {', '.join(missing_templates)}")
-            print("Place the following screenshots in 'templates/' folder:")
+            self.logger.warning(f"Warning: Missing required templates: {', '.join(missing_templates)}")
+            self.logger.info("Place the following screenshots in 'templates/' folder:")
             for template in required_templates:
-                print(f"  - {template}.png")
+                self.logger.info(f"  - {template}.png")
 
         missing_cancel = []
         for template in cancel_templates:
@@ -564,26 +566,26 @@ class CoCBot:
                 missing_cancel.append(template)
 
         if missing_cancel:
-            print(f"\nWarning: Missing cancel templates: {', '.join(missing_cancel)}")
-            print("Auto-cancel feature may not work properly.")
+            self.logger.warning(f"\nWarning: Missing cancel templates: {', '.join(missing_cancel)}")
+            self.logger.info("Auto-cancel feature may not work properly.")
 
         while True:
-            print("\n=== MAIN MENU ===")
-            print("1. Single Navigation + Attack Test")
-            print("2. Continuous Navigation + Attack Loop")
-            print("3. Configure Attack Settings")
-            print("4. View Statistics")
-            print("5. Exit")
+            self.logger.info("\n=== MAIN MENU ===")
+            self.logger.info("1. Single Navigation + Attack Test")
+            self.logger.info("2. Continuous Navigation + Attack Loop")
+            self.logger.info("3. Configure Attack Settings")
+            self.logger.info("4. View Statistics")
+            self.logger.info("5. Exit")
             
             choice = input("\nSelect option (1-5): ").strip()
 
             if choice == "1":
-                print("\n--- Single Test Cycle ---")
+                self.logger.info("\n--- Single Test Cycle ---")
                 success = self.navigation_cycle()
                 if success:
-                    print("Cycle completed successfully")
+                    self.logger.info("Cycle completed successfully")
                 else:
-                    print("Cycle failed")
+                    self.logger.error("Cycle failed")
 
             elif choice == "2":
                 self.continuous_navigation_loop()
@@ -595,11 +597,11 @@ class CoCBot:
                 self.show_statistics()
 
             elif choice == "5":
-                print("Exiting...")
+                self.logger.info("Exiting...")
                 break
 
             else:
-                print("Invalid choice. Please try again.")
+                self.logger.info("Invalid choice. Please try again.")
 
 if __name__ == "__main__":
     bot = CoCBot()
