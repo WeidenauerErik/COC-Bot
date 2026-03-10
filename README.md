@@ -1,4 +1,4 @@
-# 🏰 COC Attack Bot
+# Clash Of Clans Attack Bot
 
 An automated attack bot for **Clash of Clans** built with Python and OpenCV, featuring a Vue 3 monitoring dashboard for real-time log analysis.
 
