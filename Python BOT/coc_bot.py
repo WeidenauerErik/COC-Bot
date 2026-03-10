@@ -12,18 +12,24 @@ from logger import setup_logger
 pyautogui.FAILSAFE = False
 
 class CoCBot:
-    def __init__(self, config_file: str = "bot_config.json"):
+    def __init__(self, config_file: str = "bot_config.json", coc_config_file: str = "coc_config.json"):
         """Initialize the bot with navigation and attack capabilities"""
         self.logger = setup_logger()
         self.config = self.load_config(config_file)
         self.screen_width, self.screen_height = pyautogui.size()
         self.cycle_count = 0
         self.templates = self.load_templates()
+
         
-        # Attack configuration
-        self.attack_config = {
+        
+        self.logger.info(f"CoC Bot initialized. Screen: {self.screen_width}x{self.screen_height}")
+        self.logger.info(f"Loaded {len(self.templates)} templates")
+
+    def load_coc_config(self, coc_config_file: str) -> Dict:
+        """Load Clash of Clans specific attack configuration from JSON file"""
+        default_coc_config = {
             "heroKeybinds": ["q", "w", "e"],
-            "unitKeybind": "2",
+            "unitKeybind": "7",
             "zapKeybind": "a",
             "airDefensPositions": [
                 [1000, 700],
@@ -37,9 +43,17 @@ class CoCBot:
             "unitYPosition": 500
         }
         
-        self.logger.info(f"CoC Bot initialized. Screen: {self.screen_width}x{self.screen_height}")
-        self.logger.info(f"Loaded {len(self.templates)} templates")
-
+        if os.path.exists(coc_config_file):
+            with open(coc_config_file, 'r') as f:
+                user_coc_config = json.load(f)
+                default_coc_config.update(user_coc_config)
+        else:
+            # Create default file if it doesn't exist
+            with open(coc_config_file, 'w') as f:
+                json.dump(default_coc_config, f, indent=4)
+        
+        return default_coc_config
+    
     def load_config(self, config_file: str) -> Dict:
         """Load configuration from JSON file"""
         default_config = {
@@ -254,8 +268,8 @@ class CoCBot:
     def place_heroes(self, char: str):
         """Place a hero at the specified position"""
         self.press_key(char)
-        pyautogui.click(x=self.attack_config["heroXPosition"], 
-                       y=self.attack_config["heroYPosition"])
+        pyautogui.click(x=self.coc_config["heroXPosition"], 
+                       y=self.coc_config["heroYPosition"])
 
     def place_units(self, char: str, x_position: int, y_position: int):
         """Place units with drag motion"""
@@ -274,7 +288,7 @@ class CoCBot:
         if found_ads:
             positions_to_use = [(x, y) for x, y, level in found_ads]
         else:
-            positions_to_use = self.attack_config["airDefensPositions"]
+            positions_to_use = self.coc_config["airDefensPositions"]
         
         self.press_key(char)
         time.sleep(0.5)
@@ -298,15 +312,15 @@ class CoCBot:
         # Zap air defenses first
         self.logger.info("Placing zaps on air defenses...")
         self.place_zap_on_air_defense(
-            self.attack_config["zapKeybind"], 
-            self.attack_config["airDefensPositions"]
+            self.coc_config["zapKeybind"], 
+            self.coc_config["airDefensPositions"]
         )
         
         time.sleep(self.config.get("attack_delay_between", 1))
         
         # Place heroes
         self.logger.info("Deploying heroes...")
-        for char in self.attack_config["heroKeybinds"]:
+        for char in self.coc_config["heroKeybinds"]:
             self.place_heroes(char)
             time.sleep(self.config.get("attack_delay_between", 1))
         
@@ -315,9 +329,9 @@ class CoCBot:
         # Place units
         self.logger.info("Deploying troops...")
         self.place_units(
-            self.attack_config["unitKeybind"],
-            self.attack_config["unitXPosition"],
-            self.attack_config["unitYPosition"]
+            self.coc_config["unitKeybind"],
+            self.coc_config["unitXPosition"],
+            self.coc_config["unitYPosition"]
         )
         
         self.logger.info("Attack sequence completed")
@@ -467,12 +481,12 @@ class CoCBot:
     def update_attack_config(self):
         """Interactive menu to update attack configuration"""
         self.logger.info("\n=== Attack Configuration ===")
-        self.logger.info(f"Current hero positions: X={self.attack_config['heroXPosition']}, Y={self.attack_config['heroYPosition']}")
-        self.logger.info(f"Current unit positions: X={self.attack_config['unitXPosition']}, Y={self.attack_config['unitYPosition']}")
-        self.logger.info(f"Hero keybinds: {self.attack_config['heroKeybinds']}")
-        self.logger.info(f"Unit keybind: {self.attack_config['unitKeybind']}")
-        self.logger.info(f"Zap keybind: {self.attack_config['zapKeybind']}")
-        self.logger.info(f"Air defense positions: {self.attack_config['airDefensPositions']}")
+        self.logger.info(f"Current hero positions: X={self.coc_config['heroXPosition']}, Y={self.coc_config['heroYPosition']}")
+        self.logger.info(f"Current unit positions: X={self.coc_config['unitXPosition']}, Y={self.coc_config['unitYPosition']}")
+        self.logger.info(f"Hero keybinds: {self.coc_config['heroKeybinds']}")
+        self.logger.info(f"Unit keybind: {self.coc_config['unitKeybind']}")
+        self.logger.info(f"Zap keybind: {self.coc_config['zapKeybind']}")
+        self.logger.info(f"Air defense positions: {self.coc_config['airDefensPositions']}")
         
         self.logger.info("\nOptions:")
         self.logger.info("1. Update hero positions")
@@ -487,8 +501,8 @@ class CoCBot:
             try:
                 x = int(input("Enter hero X position: "))
                 y = int(input("Enter hero Y position: "))
-                self.attack_config["heroXPosition"] = x
-                self.attack_config["heroYPosition"] = y
+                self.coc_config["heroXPosition"] = x
+                self.coc_config["heroYPosition"] = y
                 self.logger.info("Hero positions updated!")
             except ValueError:
                 self.logger.info("Invalid input!")
@@ -497,8 +511,8 @@ class CoCBot:
             try:
                 x = int(input("Enter unit X position: "))
                 y = int(input("Enter unit Y position: "))
-                self.attack_config["unitXPosition"] = x
-                self.attack_config["unitYPosition"] = y
+                self.coc_config["unitXPosition"] = x
+                self.coc_config["unitYPosition"] = y
                 self.logger.info("Unit positions updated!")
             except ValueError:
                 self.logger.info("Invalid input!")
@@ -511,9 +525,9 @@ class CoCBot:
             unit = input("Unit key (default 1): ") or "1"
             zap = input("Zap key (default a): ") or "a"
             
-            self.attack_config["heroKeybinds"] = [hero1, hero2, hero3]
-            self.attack_config["unitKeybind"] = unit
-            self.attack_config["zapKeybind"] = zap
+            self.coc_config["heroKeybinds"] = [hero1, hero2, hero3]
+            self.coc_config["unitKeybind"] = unit
+            self.coc_config["zapKeybind"] = zap
             self.logger.info("Keybinds updated!")
         
         elif choice == "4":
@@ -530,7 +544,7 @@ class CoCBot:
                     self.logger.info(f"Invalid input for position {i+1}, keeping original")
             
             if len(positions) == 4:
-                self.attack_config["airDefensPositions"] = positions
+                self.coc_config["airDefensPositions"] = positions
                 self.logger.info("Air defense positions updated!")
             else:
                 self.logger.error("Failed to update positions - need exactly 4 positions")

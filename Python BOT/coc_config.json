@@ -1,0 +1,18 @@
+{
+    "heroKeybinds": ["q", "w", "e"],
+    "unitKeybind": "7",
+    "zapKeybind": "a",
+    "airDefensPositions": [
+        [1000, 700],
+        [1000, 500],
+        [500, 700],
+        [500, 500]
+    ],
+    "heroXPosition": 100,
+    "heroYPosition": 500,
+    "unitXPosition": 100,
+    "unitYPosition": 500,
+    "use_dynamic_air_defense": true,
+    "air_defense_confidence": 0.6,
+    "air_defense_search_timeout": 30
+}
